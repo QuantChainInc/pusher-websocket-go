@@ -19,7 +19,7 @@ const (
 	writeWait = time.Second
 
 	// Send pongs after this time. The server inactivity timeout is 120s.
-	defaultInactivityTimeout = 100 * time.Second
+	// defaultInactivityTimeout = 100 * time.Second
 
 	// Wait this long for pong replies before closing the connection
 	pongTimeout = 5000 * time.Millisecond
@@ -65,7 +65,7 @@ func dial(c ClientConfig, conf *connCallbacks) (conn *connection, err error) {
 	ws, _, err := websocket.DefaultDialer.Dial(url, nil)
 
 	conn = &connection{
-		inactivityTimeout: defaultInactivityTimeout,
+		inactivityTimeout: c.InactivityTimeout,
 		config:            conf,
 		_sendMessage:      make(chan []byte, 10),
 		_onMessage:        make(chan string),

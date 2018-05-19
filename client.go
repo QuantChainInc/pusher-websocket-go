@@ -14,6 +14,8 @@ const (
 	defaultScheme = "wss"
 	defaultHost   = "ws.pusherapp.com"
 	defaultPort   = "443"
+	// Send pongs after this time. The server inactivity timeout is 120s.
+	defaultInactivityTimeout = 100 * time.Second
 )
 
 // Client responsibilities:
@@ -26,7 +28,7 @@ const (
 type Client struct {
 	ClientConfig
 
-	bindings chanbindings
+	bindings       chanbindings
 	globalBindings map[*func(string, string, interface{})]struct{}
 
 	*connection
@@ -42,12 +44,13 @@ type Client struct {
 }
 
 type ClientConfig struct {
-	Scheme       string
-	Host         string
-	Port         string
-	Key          string
-	Secret       string
-	AuthEndpoint string
+	Scheme            string
+	Host              string
+	Port              string
+	Key               string
+	InactivityTimeout time.Duration
+	Secret            string
+	AuthEndpoint      string
 }
 
 type Event struct {
@@ -62,10 +65,11 @@ type chanbindings map[string]evBind
 // New creates a new Pusher client with given Pusher application key
 func New(key string) *Client {
 	config := ClientConfig{
-		Scheme: defaultScheme,
-		Host:   defaultHost,
-		Port:   defaultPort,
-		Key:    key,
+		Scheme:            defaultScheme,
+		Host:              defaultHost,
+		Port:              defaultPort,
+		Key:               key,
+		InactivityTimeout: defaultInactivityTimeout,
 	}
 	return NewWithConfig(config)
 }
@@ -73,13 +77,13 @@ func New(key string) *Client {
 // NewWithConfig allows creating a new Pusher client which connects to a custom endpoint
 func NewWithConfig(c ClientConfig) *Client {
 	client := &Client{
-		ClientConfig: c,
-		bindings:     make(chanbindings),
+		ClientConfig:   c,
+		bindings:       make(chanbindings),
 		globalBindings: map[*func(string, string, interface{})]struct{}{},
-		_subscribe:   make(chan *Channel),
-		_unsubscribe: make(chan string),
-		_disconnect:  make(chan bool),
-		Channels:     make([]*Channel, 0),
+		_subscribe:     make(chan *Channel),
+		_unsubscribe:   make(chan string),
+		_disconnect:    make(chan bool),
+		Channels:       make([]*Channel, 0),
 	}
 	go client.runLoop()
 	return client
@@ -286,7 +290,6 @@ func (self *Client) unsubscribe(channel *Channel) {
 	self.connection.send(message)
 	channel.Subscribed = false
 }
-
 
 func (self *Client) BindGlobal(callback func(string, string, interface{})) {
 	self.globalBindings[&callback] = struct{}{}
